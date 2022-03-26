@@ -2,6 +2,7 @@ from abc import ABCMeta, abstractmethod
 from sklearn.svm import SVC
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import confusion_matrix
+from sklearn.ensemble import RandomForestRegressor
 
 
 class BaseModel(metaclass=ABCMeta):
@@ -77,3 +78,30 @@ class LogisticReg(BaseModel):
             pred = model.predict(data)
 
         return pred
+
+
+class RandForestRegressor(BaseModel):
+    """ Logistic Regression """
+
+    def __init__(self, n_estimators=100, max_depth=10):
+
+        self.model = RandomForestRegressor(n_estimators=n_estimators, max_depth=max_depth)
+
+    def fit(self, train_X, train_y):
+        """
+        Fit the model on the data
+        """
+        return self.model.fit(train_X, train_y)
+
+    def evaluate(self, model, test_X, test_y):
+        
+        accuracy = model.score(test_X, test_y)
+
+        return accuracy
+
+    def predict(self, model, data):
+
+        pred = model.predict(data)
+
+        return pred
+
