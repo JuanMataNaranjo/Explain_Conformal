@@ -110,8 +110,9 @@ class SplitConformal(BaseConformal):
         """
         This is the base method used to estimate the lambda value based on the calibration set in data_model and alpha value
         """
-
-        random.seed(rand_state)
+        if rand_state:
+            random.seed(rand_state)
+            
         D1_index = random.sample(range(len(data_X)), int(len(data_X)*0.5))
         indexes = range(len(data_X))
         D2_index = list(set(indexes).difference(set(D1_index)))
