@@ -1,7 +1,6 @@
 from abc import ABCMeta, abstractmethod
 
 from scipy import rand
-from conformal_prediction import core
 import numpy as np
 from collections import Counter
 import pandas as pd
@@ -26,55 +25,84 @@ class BaseConformal(metaclass=ABCMeta):
 
 class SimpleConformal(BaseConformal):
 
-    def __init__(self, data_model, model, alpha, class_order):
+    def __init__(self, alpha, type='normal', class_order=None):
 
         """
         :param class_order: Auxiliar dictionary used to specify the order in which we should associate classes and softmax output
         """
         
-        self.data_model = data_model
-        self.model = model
         self.alpha = alpha
         self.class_order = class_order
+        self.type=type
 
-    def calibrate(self):
+    # TODO: Implement the Adaptive score
+    def calibrate(self, data_X, data_y, model):
         """
         This is the base method used to estimate the lambda value based on the calibration set in data_model and alpha value
+        method: adaptive, normal
         """
 
-        # Estimate the sofftmax probabilities of whatever model we want (it is important that the model class has a method fitted)
-        pred_calib = self.model.predict_proba(self.data_model.calib_data_X)
+        # Estimate the softmax probabilities of whatever model we want (it is important that the model class has a method fitted)
+        pred_calib = model.predict_proba(data_X)
 
         # First we will use the class order to assign the order which we expect from the softmax matrix
-        calib_true_score = self.data_model.calib_data_y.to_numpy()
-        mapped = np.vectorize(self.class_order.get)(calib_true_score)  
+        calib_true_score = data_y.to_numpy()
 
-        # TODO: make nicer, there has to be a way to slice the matrix
+        # Correction for quantile quantification
+        correction = ((len(calib_true_score)+1)*(1-self.alpha))/len(calib_true_score)
         scores = []
-        for i in range(len(mapped)):
-            scores.append(pred_calib[i][mapped][0])
+        if self.type == 'normal':
+            if self.class_order:
+                mapped = np.vectorize(self.class_order.get)(calib_true_score)  
+                # TODO: make nicer, there has to be a way to slice the matrix
+                for i in range(len(mapped)):
+                    scores.append(pred_calib[i][mapped][0])
+            else:
+                for i, true_class in enumerate(calib_true_score):
+                    scores.append(pred_calib[i][true_class])
 
-        # Sort scores for quantile estimation
-        scores.sort()
+            # Estimate the quantile based on the alpha value
+            lambda_conformal = np.quantile(scores, 1-correction, interpolation='lower')
 
-        # Estimate the quantile based on the alpha value
-        lambda_conformal = np.quantile(scores, 1-self.alpha, interpolation='lower')
+        elif self.type == 'adaptive':
+            for i, true_class in enumerate(calib_true_score):
+                idx = int(np.where(np.argsort(pred_calib[i])[::-1] == calib_true_score[i])[0])
+                scores.append(sum(np.sort(pred_calib[i])[::-1][:idx+1]))
+            lambda_conformal = np.quantile(scores, correction, interpolation='lower')
 
         return lambda_conformal
 
-    def predict(self, data, lambda_conformal):
+    def predict(self, data, model, lambda_conformal):
         """
         Based on the calibrated lambda estimate the new conformal prediction sets
         """
+        lambda_conformal = min(lambda_conformal, 1)
 
-        pred_data = self.model.predict_proba(data)
-
+        pred_data = model.predict_proba(data)
         pred = []
-        inv_order_dict = {v: k for k, v in self.class_order.items()}
-        for i in range(len(data)):
-            temp = np.where(pred_data[i] > lambda_conformal)
-            conformal_set = np.vectorize(inv_order_dict.get)(temp)[0]
-            pred.append(conformal_set.tolist())
+        if self.type == 'normal':
+            if self.class_order:
+                inv_order_dict = {v: k for k, v in self.class_order.items()}
+                for i in range(len(data)):
+                    indices = np.where(pred_data[i] > lambda_conformal)
+                    conformal_set = np.vectorize(inv_order_dict.get)(indices)[0]
+                    pred.append(conformal_set.tolist())
+            else:
+                classes = list(range(len(pred_data[0])))
+                for i in range(len(data)):
+                    indices = np.where(pred_data[i] > lambda_conformal)
+                    conformal_set = np.take(classes, indices).tolist()[0]
+                    pred.append(conformal_set)
+        
+        elif self.type == 'adaptive':
+            classes = list(range(len(pred_data[0])))
+            for i in range(len(pred_data)):
+                indices = np.where(np.cumsum(np.sort(pred_data[i])[::-1]) > lambda_conformal)[0][0]
+                if indices == 0:
+                    conformal_set = np.argsort(pred_data[i])[::-1][:indices+1].tolist()
+                else:
+                    conformal_set = np.argsort(pred_data[i])[::-1][:indices].tolist()
+                pred.append(conformal_set)
 
         return pred
 
@@ -93,7 +121,8 @@ class SimpleConformal(BaseConformal):
         if plot:
             count = Counter(size)
             df = pd.DataFrame.from_dict(count, orient='index')
-            df.plot(kind='bar', figsize=(12,8))
+            df.sort_index(inplace=True)
+            df.plot(kind='bar', figsize=(12,8), title='Coverage: ' + str(coverage) + '\n Size: ' + str(sum(size)))
         
         size = sum(size)
 
@@ -112,7 +141,7 @@ class SplitConformal(BaseConformal):
         """
         if rand_state:
             random.seed(rand_state)
-            
+
         D1_index = random.sample(range(len(data_X)), int(len(data_X)*0.5))
         indexes = range(len(data_X))
         D2_index = list(set(indexes).difference(set(D1_index)))

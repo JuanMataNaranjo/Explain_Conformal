@@ -224,18 +224,25 @@ class LinearData(Base):
 
 class MultiClass(Base):
 
-    def __init__(self, split_percentages=[0.70, 0.20, 0.10]):
+    def __init__(self, n=10000, n_features=10, n_informative=8, n_classes=10, split_percentages=[0.70, 0.20, 0.10], class_sep=1):
         """
         :param data_path: Path in which we can find the tabular data
         :param split: List with the percentage of splits following the convention [train, calibration, test]
         """
         self.split_percentages = split_percentages
-        self.read_data()
+        self.data = None
+        self.read_data(n, n_features, n_informative, n_classes, class_sep)
         self.split()
 
-    def read_data(self):
+    def read_data(self, n, n_features, n_informative, n_classes, class_sep):
         
-        self.X, self.y = make_classification(n_samples=1000, n_features=5, n_informative=4, n_redundant=1, n_classes=4)
+        X, y = make_classification(n_samples=n, n_features=n_informative, n_informative=n_informative, n_redundant=0, n_repeated=0, n_classes=n_classes, class_sep=class_sep)
+        uninformative = n_features-n_informative
+        X_uninformative = np.random.normal(size=(uninformative, n)).T
+        X = np.concatenate((X, X_uninformative), axis=1)
+        columns = ['f'+str(i+1) for i in range(X.shape[1])]
+        self.data = pd.DataFrame(X, columns=columns)
+        self.data['y'] = y
 
     def split(self):
         """
@@ -245,11 +252,28 @@ class MultiClass(Base):
         Test will be used to test our results
         """
 
-        pass
+        train_calib = random.sample(range(len(self.data)), 
+                                    int(len(self.data)*(self.split_percentages[0]+self.split_percentages[1])))
+        calib = random.sample(train_calib, 
+                              int(len(self.data)*self.split_percentages[1]))
+
+        indexes = range(len(self.data))
+        test_indexes = set(indexes).difference(set(train_calib))
+        calib_indexes = calib
+        train_indexes = set(train_calib).difference(set(calib))
+
+        self.test_data = self.data.loc[test_indexes]
+        self.calib_data = self.data.loc[calib_indexes]
+        self.train_data = self.data.loc[train_indexes]
 
     def X_y_split(self, y):
 
-        pass
+        self.test_data_X = self.test_data.loc[:, self.test_data.columns != y]
+        self.test_data_y = self.test_data.loc[:, y]
+        self.calib_data_X = self.calib_data.loc[:, self.calib_data.columns != y]
+        self.calib_data_y = self.calib_data.loc[:, y]
+        self.train_data_X = self.train_data.loc[:, self.train_data.columns != y]
+        self.train_data_y = self.train_data.loc[:, y]
         
 
     def get_stats(self):
