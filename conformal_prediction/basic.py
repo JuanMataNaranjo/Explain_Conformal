@@ -35,7 +35,6 @@ class SimpleConformal(BaseConformal):
         self.class_order = class_order
         self.type=type
 
-    # TODO: Implement the Adaptive score
     def calibrate(self, data_X, data_y, model):
         """
         This is the base method used to estimate the lambda value based on the calibration set in data_model and alpha value
@@ -181,6 +180,82 @@ class SplitConformal(BaseConformal):
         pred = []
         for i in range(len(data)):
             conformal_set = [pred_data[i]-lambda_conformal, pred_data[i]+lambda_conformal]
+            pred.append(conformal_set)
+
+        return pred
+
+    def evaluate(self, pred, true_data, plot=True):
+        """
+        This method will allow us to see whether the coverage conditions are fulfilled, the average size of the sets, etc.
+        :param pred: output of the method predict
+        :param true_data: self.data.test_data_y for example
+        """
+
+        assert len(pred) == len(true_data)
+
+        coverage = sum([True if (true_data.iloc[i] <= pred[i][1]) & (true_data.iloc[i] >= pred[i][0]) else False for i in range(len(true_data))])/len(pred)
+        size = [pred[i][1]-pred[i][0] for i in range(len(pred))]
+
+        # Implement a more representative plot
+        if plot:
+            pass
+        
+        size = sum(size)
+
+        return coverage, size
+
+
+
+class QuantileConformal(BaseConformal):
+
+    def __init__(self, alpha):
+
+        """
+        :param class_order: Auxiliar dictionary used to specify the order in which we should associate classes and softmax output
+        """
+        
+        self.alpha = alpha
+
+    def calibrate(self, data_X, data_y, model_upper, model_lower):
+        """
+        This is the base method used to estimate the lambda value based on the calibration set in data_model and alpha value
+        method: adaptive, normal
+        """
+
+        # Estimate the softmax probabilities of whatever model we want (it is important that the model class has a method fitted)
+        pred_calib_upper = model_upper.predict(data_X)
+        pred_calib_lower = model_lower.predict(data_X)
+
+        # First we will use the class order to assign the order which we expect from the softmax matrix
+        calib_true_score = data_y.to_numpy()
+
+        # Correction for quantile quantification
+        correction = ((len(calib_true_score)+1)*(1-self.alpha))/len(calib_true_score)
+        scores = []
+        w = 0
+        for true_class in calib_true_score:
+        # for j, true_class in enumerate(calib_true_score):
+            upper_score = true_class - pred_calib_upper[w]
+            lower_score = pred_calib_lower[w] - true_class
+            score = min([upper_score, lower_score], key=abs)
+            scores.append(score)
+            w+=1
+
+        lambda_conformal = np.quantile(scores, correction, interpolation='lower')
+
+        return lambda_conformal
+
+    def predict(self, data, model_upper, model_lower, lambda_conformal):
+        """
+        Based on the calibrated lambda estimate the new conformal prediction sets
+        """
+
+        pred_data_upper = model_upper.predict(data)
+        pred_data_lower = model_lower.predict(data)
+
+        pred = []
+        for i in range(len(data)):
+            conformal_set = [pred_data_lower[i]-lambda_conformal, pred_data_upper[i]+lambda_conformal]
             pred.append(conformal_set)
 
         return pred
