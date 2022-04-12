@@ -96,7 +96,10 @@ class SimpleConformal(BaseConformal):
         elif self.type == 'adaptive':
             classes = list(range(len(pred_data[0])))
             for i in range(len(pred_data)):
-                indices = np.where(np.cumsum(np.sort(pred_data[i])[::-1]) > lambda_conformal)[0][0]
+                try:
+                    indices = np.where(np.cumsum(np.sort(pred_data[i])[::-1]) > lambda_conformal)[0][0]
+                except:
+                    indices = 0
                 if indices == 0:
                     conformal_set = np.argsort(pred_data[i])[::-1][:indices+1].tolist()
                 else:
@@ -159,7 +162,7 @@ class SplitConformal(BaseConformal):
         n = len(data_y)
 
         k = int(np.ceil((n/2+1)*(1-self.alpha)))
-        lambda_conformal = residuals[k]
+        lambda_conformal = residuals[k-1]
 
         return lambda_conformal, model
 
