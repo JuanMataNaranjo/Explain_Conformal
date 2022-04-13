@@ -100,10 +100,7 @@ class SimpleConformal(BaseConformal):
                     indices = np.where(np.cumsum(np.sort(pred_data[i])[::-1]) > lambda_conformal)[0][0]
                 except:
                     indices = 0
-                if indices == 0:
-                    conformal_set = np.argsort(pred_data[i])[::-1][:indices+1].tolist()
-                else:
-                    conformal_set = np.argsort(pred_data[i])[::-1][:indices].tolist()
+                conformal_set = np.argsort(pred_data[i])[::-1][:indices+1].tolist()
                 pred.append(conformal_set)
 
         return pred

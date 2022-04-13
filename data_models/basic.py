@@ -219,6 +219,79 @@ class LinearData(Base):
 
     def get_stats(self):
         pass
+
+
+class LinearDataCorrelated(Base):
+    """
+    This class will allow us to generate data which can be modelled using a linear model
+    """
+
+    def __init__(self, n=1000, split_percentages=[0.70, 0.20, 0.10], mu=None, std=None, cov_matrix=None, weights=None, num_features=None):
+        self.n = n
+        self.split_percentages = split_percentages
+        self.read_data(mu=mu, cov_matrix=cov_matrix, weights=weights, num_features=num_features, std=std)
+        self.split()
+
+    def linear_function(self, x, weights=None):
+        """ Additive model """
+
+        if not isinstance(weights, np.ndarray):
+            weights = np.random.uniform(low=-10, high=10, size=len(x))
+        out = np.sum(x*weights)
+
+        return out
+
+    def read_data(self, mu, cov_matrix, weights, std=1, num_features=None):
+
+        if isinstance(weights, np.ndarray):
+            num_features = len(weights)
+    
+        rng = np.random.default_rng()
+        x = rng.multivariate_normal(mu, cov_matrix, size=self.n)
+
+        err = np.random.normal(0, std, size=self.n)
+        y = []
+        for i, _ in enumerate(list(x)):
+            y.append(self.linear_function(x[i], weights=weights)+err[i])
+
+        columns = ['f'+str(i+1) for i in range(num_features)]
+        self.data = pd.DataFrame(x, columns=columns)
+        self.data['Y'] = y
+
+    def split(self):
+        """
+        Method to split data into train, calibration and test.
+        Train will be used to train the model.
+        Calibration will be used for the conformal prediction estimation
+        Test will be used to test our results
+        """
+
+        train_calib = random.sample(range(len(self.data)), 
+                                    int(len(self.data)*(self.split_percentages[0]+self.split_percentages[1])))
+        calib = random.sample(train_calib, 
+                              int(len(self.data)*self.split_percentages[1]))
+
+        indexes = range(len(self.data))
+        test_indexes = set(indexes).difference(set(train_calib))
+        calib_indexes = calib
+        train_indexes = set(train_calib).difference(set(calib))
+
+        self.test_data = self.data.loc[test_indexes]
+        self.calib_data = self.data.loc[calib_indexes]
+        self.train_data = self.data.loc[train_indexes]
+
+    def X_y_split(self, y):
+
+        self.test_data_X = self.test_data.loc[:, self.test_data.columns != y]
+        self.test_data_y = self.test_data.loc[:, y]
+        self.calib_data_X = self.calib_data.loc[:, self.calib_data.columns != y]
+        self.calib_data_y = self.calib_data.loc[:, y]
+        self.train_data_X = self.train_data.loc[:, self.train_data.columns != y]
+        self.train_data_y = self.train_data.loc[:, y]
+        
+
+    def get_stats(self):
+        pass
     
     
 
