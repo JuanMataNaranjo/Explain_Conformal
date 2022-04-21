@@ -6,6 +6,7 @@ from collections import Counter
 import pandas as pd
 import matplotlib.pyplot as plt
 import random
+import copy
 
 
 class BaseConformal(metaclass=ABCMeta):
@@ -216,15 +217,19 @@ class QuantileConformal(BaseConformal):
         
         self.alpha = alpha
 
-    def calibrate(self, data_X, data_y, model_upper, model_lower):
+    def calibrate(self, data_X, data_y, model, model_upper, model_lower):
         """
         This is the base method used to estimate the lambda value based on the calibration set in data_model and alpha value
         method: adaptive, normal
         """
 
+        # We need to add an additional column with 1's to represent the intercept value...
+        data_X_1 = copy.copy(data_X)
+        data_X_1.insert(0, 'I', 1)
+
         # Estimate the softmax probabilities of whatever model we want (it is important that the model class has a method fitted)
-        pred_calib_upper = model_upper.predict(data_X)
-        pred_calib_lower = model_lower.predict(data_X)
+        pred_calib_upper = model.predict(model_upper.params, data_X_1)
+        pred_calib_lower = model.predict(model_lower.params, data_X_1)
 
         # First we will use the class order to assign the order which we expect from the softmax matrix
         calib_true_score = data_y.to_numpy()
@@ -245,16 +250,20 @@ class QuantileConformal(BaseConformal):
 
         return lambda_conformal
 
-    def predict(self, data, model_upper, model_lower, lambda_conformal):
+    def predict(self, data, model, model_upper, model_lower, lambda_conformal):
         """
         Based on the calibrated lambda estimate the new conformal prediction sets
         """
 
-        pred_data_upper = model_upper.predict(data)
-        pred_data_lower = model_lower.predict(data)
+        # We need to add an additional column with 1's to represent the intercept value...
+        data_X_1 = copy.copy(data)
+        data_X_1.insert(0, 'I', 1)
+
+        pred_data_upper = model.predict(model_upper.params, data_X_1)
+        pred_data_lower = model.predict(model_lower.params, data_X_1)
 
         pred = []
-        for i in range(len(data)):
+        for i in range(len(data_X_1)):
             conformal_set = [pred_data_lower[i]-lambda_conformal, pred_data_upper[i]+lambda_conformal]
             pred.append(conformal_set)
 
