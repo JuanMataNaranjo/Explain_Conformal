@@ -101,7 +101,7 @@ class SimpleConformal(BaseConformal):
                     indices = np.where(np.cumsum(np.sort(pred_data[i])[::-1]) > lambda_conformal)[0][0]
                 except:
                     indices = 0
-                conformal_set = np.argsort(pred_data[i])[::-1][:indices+1].tolist()
+                conformal_set = np.argsort(pred_data[i])[::-1][:indices].tolist()
                 pred.append(conformal_set)
 
         return pred
@@ -124,7 +124,7 @@ class SimpleConformal(BaseConformal):
             df.sort_index(inplace=True)
             df.plot(kind='bar', figsize=(12,8), title='Coverage: ' + str(coverage) + '\n Size: ' + str(sum(size)))
         
-        size = sum(size)
+        size = sum(size)/len(pred)
 
         return coverage, size
 
@@ -138,31 +138,18 @@ class SplitConformal(BaseConformal):
     def calibrate(self, data_X, data_y, model, residual_type='normal', rand_state=42):
         """
         This is the base method used to estimate the lambda value based on the calibration set in data_model and alpha value
-        """
-        if rand_state:
-            random.seed(rand_state)
-
-        D1_index = random.sample(range(len(data_X)), int(len(data_X)*0.5))
-        indexes = range(len(data_X))
-        D2_index = list(set(indexes).difference(set(D1_index)))
-
-        D1_X = data_X.iloc[D1_index]
-        D2_X = data_X.iloc[D2_index]
-        D1_y = data_y.iloc[D1_index]
-        D2_y = data_y.iloc[D2_index]
-
-        model.fit(D1_X, D1_y)       
+        """   
 
         # Evaluate the residuals on the D2 using f1
-        residuals = self.residual(y_true=D2_y, pred=model.predict(D2_X), type=residual_type).to_numpy()
+        residuals = self.residual(y_true=data_y, pred=model.predict(data_X), type=residual_type).to_numpy()
         residuals.sort()
 
         n = len(data_y)
 
-        k = int(np.ceil((n/2+1)*(1-self.alpha)))
+        k = int(np.ceil((n+1)*(1-self.alpha)))
         lambda_conformal = residuals[k-1]
 
-        return lambda_conformal, model
+        return lambda_conformal
 
     def residual(self, pred, y_true, type='normal'):
         
@@ -201,7 +188,7 @@ class SplitConformal(BaseConformal):
         if plot:
             pass
         
-        size = sum(size)
+        size = sum(size)/len(pred)
 
         return coverage, size
 
@@ -285,6 +272,6 @@ class QuantileConformal(BaseConformal):
         if plot:
             pass
         
-        size = sum(size)
+        size = sum(size)/len(pred)
 
         return coverage, size

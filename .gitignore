@@ -131,3 +131,5 @@ dmypy.json
 data/
 .idea/
 images/
+data_results/
+waiting_notebook.ipynb
