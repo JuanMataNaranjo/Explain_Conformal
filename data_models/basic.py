@@ -5,6 +5,7 @@ import random
 import numpy as np
 from sklearn.datasets import make_classification
 import copy
+from scipy.stats import skewnorm
 
 
 class Base(metaclass=ABCMeta):
@@ -311,10 +312,10 @@ class LinearDataTest(Base):
     This class will allow us to generate data which can be modelled using a linear model
     """
 
-    def __init__(self, n=1000, split_percentages=[0.70, 0.20, 0.10], mu=None, std=None, weights=None, num_features=None):
+    def __init__(self, n=1000, split_percentages=[0.70, 0.20, 0.10], mu=None, std=None, weights=None, num_features=None, a=None):
         self.n = n
         self.split_percentages = split_percentages
-        self.read_data(mu=mu, weights=weights, num_features=num_features, std=std)
+        self.read_data(mu=mu, weights=weights, std=std, a=a)
         self.split()
 
     def linear_function(self, x1, x2, x3, x4, x5, 
@@ -328,22 +329,35 @@ class LinearDataTest(Base):
 
         return out
 
-    def read_data(self, mu, weights, std=1, num_features=None):
+    def read_data(self, mu, weights, std=1, a=None):
 
         if isinstance(weights, np.ndarray):
             num_features = len(weights)
-    
-        X1 = np.random.normal(mu, std, size=self.n)
-        X2 = np.random.normal(mu, std, size=self.n)
-        X3 = np.random.normal(mu, std, size=self.n)
-        X4 = np.random.normal(mu, std, size=self.n)
-        X5 = np.random.normal(mu, std, size=self.n)
-        X6 = np.random.normal(mu, std, size=self.n)
-        X7 = np.random.normal(mu, std, size=self.n)
-        X8 = np.random.normal(mu, std, size=self.n)
-        X9 = np.random.normal(mu, std, size=self.n)
-        X10 = np.random.normal(mu, std, size=self.n)
-        err = np.random.normal(mu, std, size=self.n)
+
+        if a:
+            X1 = skewnorm.rvs(a, size=self.n)
+            X2 = skewnorm.rvs(a, size=self.n)
+            X3 = skewnorm.rvs(a, size=self.n)
+            X4 = skewnorm.rvs(a, size=self.n)
+            X5 = skewnorm.rvs(a, size=self.n)
+            X6 = skewnorm.rvs(a, size=self.n)
+            X7 = skewnorm.rvs(a, size=self.n)
+            X8 = skewnorm.rvs(a, size=self.n)
+            X9 = skewnorm.rvs(a, size=self.n)
+            X10 = skewnorm.rvs(a, size=self.n)
+            err = np.random.normal(0, 1, size=self.n)
+        else:
+            X1 = np.random.normal(mu, std, size=self.n)
+            X2 = np.random.normal(mu, std, size=self.n)
+            X3 = np.random.normal(mu, std, size=self.n)
+            X4 = np.random.normal(mu, std, size=self.n)
+            X5 = np.random.normal(mu, std, size=self.n)
+            X6 = np.random.normal(mu, std, size=self.n)
+            X7 = np.random.normal(mu, std, size=self.n)
+            X8 = np.random.normal(mu, std, size=self.n)
+            X9 = np.random.normal(mu, std, size=self.n)
+            X10 = np.random.normal(mu, std, size=self.n)
+            err = np.random.normal(mu, std, size=self.n)
 
         y = []
         for i in range(len(X1)):

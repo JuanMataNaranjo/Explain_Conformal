@@ -28,7 +28,7 @@ def full_conformal(model, data_model, conformal_class, alpha=0.05, evaluate=True
         return pred_all, lambda_all, copy.copy(model_full)
 
 
-def train_twice_conformal(model, modified_data, data_model, conformal_class, alpha=0.05, evaluate=True):
+def train_twice_conformal(model, modified_data, data_model, conformal_class, alpha=0.05, evaluate=True, model_return=False):
 
     model_j_2 = model
     model_j_2.fit(modified_data['train'], data_model.train_data_y)
@@ -42,6 +42,9 @@ def train_twice_conformal(model, modified_data, data_model, conformal_class, alp
     if evaluate:
         cov_j_2, size_j_2 = conformal_predictor_j.evaluate(pred_j_2, data_model.test_data_y)
         return pred_j_2, cov_j_2, size_j_2
+    if model_return:
+        cov_j_2, size_j_2 = conformal_predictor_j.evaluate(pred_j_2, data_model.test_data_y)
+        return pred_j_2, cov_j_2, size_j_2, model_j_2
     else:
         return pred_j_2, lambda_j_2
 

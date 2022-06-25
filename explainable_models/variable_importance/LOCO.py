@@ -40,9 +40,9 @@ class SimpleLOCO():
 
         D1_X, D1_y, D2_X, D2_y = self._split(self.train_data, prop=prop)
         f1 = self.model.fit(D1_X, D1_y)
-        pred_D2 = self.model.predict(f1, D2_X, softmax=False)
+        pred_D2 = f1.predict(D2_X)
         f1_j = self.model.fit(D1_X.loc[:, D1_X.columns != variable], D1_y)
-        pred_D2_j = self.model.predict(f1_j, D2_X.loc[:, D2_X.columns != variable], softmax=False)
+        pred_D2_j = f1_j.predict(D2_X.loc[:, D2_X.columns != variable])
 
         feature_importance = self.loss(true_y=D2_y, 
                                        pred_y=pred_D2, pred_y_j=pred_D2_j, type=loss_type)
@@ -55,7 +55,7 @@ class SimpleLOCO():
             D2_X_boot = D2_X.iloc[idx, D2_X.columns != variable]
             D2_y_boot = D2_y.iloc[idx]
 
-            pred_D2_j_boot = self.model.predict(f1_j, D2_X_boot, softmax=False)
+            pred_D2_j_boot = f1_j.predict(D2_X_boot)
             pred_D2_boot = pred_D2[idx]
 
             estimate.append(self.loss(true_y=D2_y_boot, 
